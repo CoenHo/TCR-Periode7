@@ -44,7 +44,9 @@ Get-DnsServerResourceRecord -ZoneName tcr-coehod.int -RRType CName
 Add-DnsServerResourceRecordMX -Preference 10  -Name "." -TimeToLive 01:00:00 -MailExchange smtp.tcr-coehod.int -ZoneName tcr-coehod.int
 #Laat het zien
 Get-DnsServerResourceRecord -ZoneName xyz.int -RRType "MX"
-
+#taak 6
+#verwijder roothints
+Get-DnsServerRootHint | Remove-DnsServerRootHint -Force
 #taak 8
 #Voeg forwarders toe
 Set-DnsServerForwarder -IPAddress 10.60.3.223, 8.8.8.8
