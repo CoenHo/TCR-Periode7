@@ -25,7 +25,7 @@ function New-TcrVm {
     Param
     (
         #Name is de naam van de VM die aangemaakt wordt, accepteerd pipeline en meerdere waarden
-        #"coen","jan","tine","felix","hannah" | new-tcrvm
+        #"dc1","dc2","rtr","exch","web" | new-tcrvm
         [Parameter(Mandatory = $true,
             ValueFromPipeline = $true,
             ValueFromPipelineByPropertyName = $true,
@@ -76,63 +76,64 @@ function New-TcrVm {
        
         if ($null -eq $NewVHDSizeBytes) { $NewVHDSizeBytes = 60GB } else { $NewVHDSizeBytes }
         
-        if ($null -eq $path) { $path = (get-vmhost).VirtualMachinePath }
+        if (!$path) { $path = (get-vmhost).VirtualMachinePath }
     }
     Process {
         if ( $PsCmdlet.ParameterSetName -eq "NonDifferencing") { 
             foreach ($currentItemName in $name) {
-                $currentItemName = "TCR-$currentItemName"
                 $vhdpath = "$path\$currentItemName\Virtual Hard Disks\$currentItemName-os.vhdx"
-                
-                write-verbose $currentItemName
-                if ($null -eq $SwitchName)
+                if(-Not(test-path -Path $vhdpath -PathType leaf))
                 {
-                    $vm = new-vm -name $currentItemName -path $path -Generation $Generation -newVHDPath $vhdpath  -NewVHDSizeBytes $NewVHDSizeBytes
+                    Test-path -path $vhdpath -ErrorAction Stop | out-null
+                    write-verbose $currentItemName
+                    if (!$SwitchName) {
+                        $vm = new-vm -name $currentItemName -path $path -Generation $Generation -newVHDPath $vhdpath  -NewVHDSizeBytes $NewVHDSizeBytes
+                    }
+                    else {
+                        $vm = new-vm -name $currentItemName -path $path -Generation $Generation -newVHDPath $vhdpath  -NewVHDSizeBytes $NewVHDSizeBytes -SwitchName $SwitchName
+                    }    
+                    Add-VMDvdDrive -VMName $currentItemName -Path $iso | out-null
+                    Set-vm -VMName $currentItemName -AutomaticCheckpointsEnabled $false -ProcessorCount 4 | out-null
+                    Set-VMFirmware -VMName $currentItemName -FirstBootDevice (Get-VMDvdDrive -VMName $currentItemName) | out-null
+                    $props = @{ Name                = $vm.Name
+                        Path                        = $vm.Path
+                        ProcessorCount              = $vm.ProcessorCount
+                        AutomaticCheckpointsEnabled = $vm.AutomaticCheckpointsEnabled
+                    }
+
+                    $object = new-object -TypeName psobject -Property $props
+
+                    write-output $object
                 }
-                else
-                {
-                    $vm = new-vm -name $currentItemName -path $path -Generation $Generation -newVHDPath $vhdpath  -NewVHDSizeBytes $NewVHDSizeBytes -SwitchName $SwitchName
-                }    
-                Add-VMDvdDrive -VMName $currentItemName -Path $iso | out-null
-                Set-vm -VMName $currentItemName -AutomaticCheckpointsEnabled $false -ProcessorCount 4 | out-null
-                Set-VMFirmware -VMName $currentItemName -FirstBootDevice (Get-VMDvdDrive -VMName $currentItemName) | out-null
-                $props = @{ Name = $vm.Name
-                    Path = $vm.Path
-                    ProcessorCount = $vm.ProcessorCount
-                    AutomaticCheckpointsEnabled = $vm.AutomaticCheckpointsEnabled}
-
-        $object = new-object -TypeName psobject -Property $props
-
-        write-output $object
             }
         }
         else {  
             foreach ($currentItemName in $name) {
-                $currentItemName = "TCR-$currentItemName"
                 $vhdpath = "$path\$currentItemName\Virtual Hard Disks\$currentItemName-os.vhdx"
-                test-path -path $vhdpath -ErrorAction Stop
-                write-verbose $currentItemName
-                if($null -eq $SwitchName)
+                if(-Not(test-path -path $vhdpath -PathType Leaf))
                 {
-                    $vm = new-vm $currentItemName -Generation $Generation -NoVHD -path $path
-                }
-                else
-                {
-                    $vm = new-vm $currentItemName -Generation $Generation -NoVHD -path $path -SwitchName $SwitchName
-                }
+                    write-verbose $currentItemName
+                    if (!$SwitchName) {
+                        $vm = new-vm $currentItemName -Generation $Generation -NoVHD -path $path
+                    }
+                    else {
+                        $vm = new-vm $currentItemName -Generation $Generation -NoVHD -path $path -SwitchName $SwitchName
+                    }
                     new-vhd -Differencing -ParentPath $ParentPath -path $vhdpath | out-null
-                Add-VMHardDiskDrive -VMName $currentItemName -path $vhdpath | out-null
-                Set-vm -VMName $currentItemName -AutomaticCheckpointsEnabled $false -ProcessorCount 4 | out-null
-                Set-VMFirmware -VMName $currentItemName -FirstBootDevice (Get-VMHardDiskDrive -VMName $currentItemName) | out-null
+                    Add-VMHardDiskDrive -VMName $currentItemName -path $vhdpath | out-null
+                    Set-vm -VMName $currentItemName -AutomaticCheckpointsEnabled $false -ProcessorCount 4 | out-null
+                    Set-VMFirmware -VMName $currentItemName -FirstBootDevice (Get-VMHardDiskDrive -VMName $currentItemName) | out-null
 
-                $props = @{ Name = $vm.Name
-                            Path = $vm.Path
-                            ProcessorCount = $vm.ProcessorCount
-                            AutomaticCheckpointsEnabled = $vm.AutomaticCheckpointsEnabled}
+                    $props = @{ Name                = $vm.Name
+                        Path                        = $vm.Path
+                        ProcessorCount              = $vm.ProcessorCount
+                        AutomaticCheckpointsEnabled = $vm.AutomaticCheckpointsEnabled
+                    }
 
-                $object = new-object -TypeName psobject -Property $props
+                    $object = new-object -TypeName psobject -Property $props
 
-                write-output $object
+                    write-output $object
+                }
             }
         }
     }
