@@ -1,41 +1,126 @@
-function New-TcrVm
-{
-    [CmdletBinding()]
+<#
+.Synopsis
+   Short description
+.DESCRIPTION
+   Maak een virtuele machine voor gebruik op TCR
+.EXAMPLE
+   Gebruik deze syntax als je differencing wil gebruiken
+   new-tcrvm -Name DC1 -ParentPath "D:\VM\Base\ws2022_STD_21-03-2022-UEFI.vhdx"
+.EXAMPLE
+   Accepteert invoer vanaf tekst of cli
+   "dc1","dc2","rtr","exch","web" | new-tcrvm -ParentPath "D:\VM\Base\ws2022_STD_21-03-2022-UEFI.vhdx"
+.EXAMPLE
+   Je kan ook een VM maken met een eigen VHD
+   "dc1","dc2","rtr","exch","web" | new-tcrvm -Name DC1 -Iso "E:\ISO\Srv2019Eval.ISO"
+.EXAMPLE
+   Accepteert invoer vanaf tekst of cli
+   new-tcrvm -Name DC1 -Iso "E:\ISO\Srv2019Eval.ISO"
+.FUNCTIONALITY
+   The functionality that best describes this cmdlet
+#>
+function New-TcrVm {
+    [CmdletBinding(DefaultParameterSetName = "Differencing")]
     [Alias()]
     [OutputType([int])]
     Param
     (
+        #Name is de naam van de VM die aangemaakt wordt, accepteerd pipeline en meerdere waarden
+        #"coen","jan","tine","felix","hannah" | new-tcrvm
+        [Parameter(Mandatory = $true,
+            ValueFromPipeline = $true,
+            ValueFromPipelineByPropertyName = $true,
+            ParameterSetName = "NonDifferencing",
+            Position = 0)]
+        [Parameter(ParameterSetName = "Differencing",
+            ValueFromPipeline = $true,
+            ValueFromPipelineByPropertyName = $true,
+            Position = 0)]                   
+        [string[]]
+        $Name,
         # Path waar de vm opgeslagen moet worden standaard worden de instellingen van hyper-v gebruikt
         # (get-vmhost).VirtualMachinePath
-        [Parameter(ValueFromPipelineByPropertyName=$true,
-                   Position=0)]
+        [Parameter(ParameterSetName = "Differencing")]
+        [Parameter(ParameterSetName = "NonDifferencing")]
         $Path,
 
         # Generation standard is 2!
+        [Parameter(ParameterSetName = "Differencing")]
+        [Parameter(ParameterSetName = "NonDifferencing")]
         [int]
         $Generation = 2,
 
-        # Difference true or false
-        [bool]
-        $Difference,
-
+        #Pad naar ISO bestand
+        [Parameter(ParameterSetName = "NonDifferencing",
+            ValueFromPipelineByPropertyName = $true)]
+        [ValidateNotNullOrEmpty()]
         [string]
         $Iso,
 
-        $NewVHDSizeBytes
+        #Grootte van de VHD in GB
+        [Parameter(ParameterSetName = "NonDifferencing")]
+        $NewVHDSizeBytes,
+
+        [Parameter(ParameterSetName = "Differencing",
+            ValueFromPipelineByPropertyName = $true)]
+        [string]
+        $ParentPath
     )
 
-    Begin
-    {
-        if ($null -eq $path){
-            $path = (get-vmhost).VirtualMachinePath
+    Begin {
+        
+        if ($null -eq $NewVHDSizeBytes) { $NewVHDSizeBytes = 60GB } else { $NewVHDSizeBytes }
+        
+        if ($null -eq $path) { $path = (get-vmhost).VirtualMachinePath }
+    }
+    Process {
+        if ( $PsCmdlet.ParameterSetName -eq "NonDifferencing") { 
+            foreach ($currentItemName in $name) {
+                $currentItemName = "TCR-$currentItemName"
+                $vhdpath = "$path\$currentItemName\Virtual Hard Disks\$currentItemName-os.vhdx"
+                
+                write-verbose $currentItemName
+                $vm = new-vm -name $currentItemName -path $path -Generation $Generation -newVHDPath $vhdpath  -NewVHDSizeBytes $NewVHDSizeBytes | out-null
+                Add-VMDvdDrive -VMName $currentItemName -Path $iso | out-null
+                Set-vm -VMName $currentItemName -AutomaticCheckpointsEnabled $false -ProcessorCount 4 | out-null
+                Set-VMFirmware -VMName $currentItemName -FirstBootDevice (Get-VMDvdDrive -VMName $currentItemName) | out-null
+                $props.add("Name", $vm.Name)
+                $props.add("Path", $vm.Path)
+                $props.add("ProcessorCount", $vm.ProcessorCount)
+                $props.add("AutomaticCheckpointsEnabled", $vm.AutomaticCheckpointsEnabled)
+
+                $object = new-object -TypeName psobject -Property $props
+
+                write-output $object
+            }
+        }
+        else {  
+            foreach ($currentItemName in $name) {
+                $currentItemName = "TCR-$currentItemName"
+                $vhdpath = "$path\$currentItemName\Virtual Hard Disks\$currentItemName-os.vhdx"
+                if (test-path -path $vhdpath) { write-error "$vhdpath bestaat al", break }
+                write-verbose $currentItemName
+                $vm = new-vm $currentItemName -Generation $Generation -NoVHD -path $path
+                new-vhd -Differencing -ParentPath $ParentPath -path $vhdpath | out-null
+                Add-VMHardDiskDrive -VMName $currentItemName -path $vhdpath | out-null
+                Set-vm -VMName $currentItemName -AutomaticCheckpointsEnabled $false -ProcessorCount 4 | out-null
+                Set-VMFirmware -VMName $currentItemName -FirstBootDevice (Get-VMHardDiskDrive -VMName $currentItemName) | out-null
+
+                $props = @{ Name = $vm.Name
+                            Path = $vm.Path
+                            ProcessorCount = $vm.ProcessorCount
+                            AutomaticCheckpointsEnabled = $vm.AutomaticCheckpointsEnabled}
+
+                $object = new-object -TypeName psobject -Property $props
+
+                write-output $object
+            }
         }
     }
-    Process
-    {
-        new-vm -name Windows11 -path $path -Generation $Generation -newVHDPath "d:\VM\Windows11\Virtual Hard Disks\Windows11-os.vhdx" -NewVHDSizeBytes 40gb
-    }
-    End
-    {
+    End {
+        write-verbose "pad waar de VM opgeslagen wordt is $path"
+        if ($PsCmdlet.ParameterSetName -eq "NonDifferencing") {
+            write-verbose "Schijgrootte is $([math]::round($NewVHDSizeBytes /1Gb, 3)) GB"
+        }
+             
     }
 }
