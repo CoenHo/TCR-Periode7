@@ -63,11 +63,17 @@ function New-TcrVm {
         [Parameter(ParameterSetName = "Differencing",
             ValueFromPipelineByPropertyName = $true)]
         [string]
-        $ParentPath
+        $ParentPath,
+
+        #Verbind met een VmSwitch standaard wordt met niet verbonden
+        [Parameter(ParameterSetName = "Differencing")]
+        [Parameter(ParameterSetName = "NonDifferencing")]
+        [string]
+        $SwitchName
     )
 
     Begin {
-        
+       
         if ($null -eq $NewVHDSizeBytes) { $NewVHDSizeBytes = 60GB } else { $NewVHDSizeBytes }
         
         if ($null -eq $path) { $path = (get-vmhost).VirtualMachinePath }
@@ -79,28 +85,42 @@ function New-TcrVm {
                 $vhdpath = "$path\$currentItemName\Virtual Hard Disks\$currentItemName-os.vhdx"
                 
                 write-verbose $currentItemName
-                $vm = new-vm -name $currentItemName -path $path -Generation $Generation -newVHDPath $vhdpath  -NewVHDSizeBytes $NewVHDSizeBytes | out-null
+                if ($null -eq $SwitchName)
+                {
+                    $vm = new-vm -name $currentItemName -path $path -Generation $Generation -newVHDPath $vhdpath  -NewVHDSizeBytes $NewVHDSizeBytes
+                }
+                else
+                {
+                    $vm = new-vm -name $currentItemName -path $path -Generation $Generation -newVHDPath $vhdpath  -NewVHDSizeBytes $NewVHDSizeBytes -SwitchName $SwitchName
+                }    
                 Add-VMDvdDrive -VMName $currentItemName -Path $iso | out-null
                 Set-vm -VMName $currentItemName -AutomaticCheckpointsEnabled $false -ProcessorCount 4 | out-null
                 Set-VMFirmware -VMName $currentItemName -FirstBootDevice (Get-VMDvdDrive -VMName $currentItemName) | out-null
-                $props.add("Name", $vm.Name)
-                $props.add("Path", $vm.Path)
-                $props.add("ProcessorCount", $vm.ProcessorCount)
-                $props.add("AutomaticCheckpointsEnabled", $vm.AutomaticCheckpointsEnabled)
+                $props = @{ Name = $vm.Name
+                    Path = $vm.Path
+                    ProcessorCount = $vm.ProcessorCount
+                    AutomaticCheckpointsEnabled = $vm.AutomaticCheckpointsEnabled}
 
-                $object = new-object -TypeName psobject -Property $props
+        $object = new-object -TypeName psobject -Property $props
 
-                write-output $object
+        write-output $object
             }
         }
         else {  
             foreach ($currentItemName in $name) {
                 $currentItemName = "TCR-$currentItemName"
                 $vhdpath = "$path\$currentItemName\Virtual Hard Disks\$currentItemName-os.vhdx"
-                if (test-path -path $vhdpath) { write-error "$vhdpath bestaat al", break }
+                test-path -path $vhdpath -ErrorAction Stop
                 write-verbose $currentItemName
-                $vm = new-vm $currentItemName -Generation $Generation -NoVHD -path $path
-                new-vhd -Differencing -ParentPath $ParentPath -path $vhdpath | out-null
+                if($null -eq $SwitchName)
+                {
+                    $vm = new-vm $currentItemName -Generation $Generation -NoVHD -path $path
+                }
+                else
+                {
+                    $vm = new-vm $currentItemName -Generation $Generation -NoVHD -path $path -SwitchName $SwitchName
+                }
+                    new-vhd -Differencing -ParentPath $ParentPath -path $vhdpath | out-null
                 Add-VMHardDiskDrive -VMName $currentItemName -path $vhdpath | out-null
                 Set-vm -VMName $currentItemName -AutomaticCheckpointsEnabled $false -ProcessorCount 4 | out-null
                 Set-VMFirmware -VMName $currentItemName -FirstBootDevice (Get-VMHardDiskDrive -VMName $currentItemName) | out-null
