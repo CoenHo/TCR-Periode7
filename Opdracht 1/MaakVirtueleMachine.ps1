@@ -19,7 +19,8 @@
    The functionality that best describes this cmdlet
 #>
 function New-TcrVm {
-    [CmdletBinding(DefaultParameterSetName = "Differencing")]
+    [CmdletBinding(DefaultParameterSetName = "Differencing",
+    SupportsShouldProcess = $true)]
     [Alias()]
     [OutputType([int])]
     Param
@@ -140,7 +141,7 @@ function New-TcrVm {
     End {
         write-verbose "pad waar de VM opgeslagen wordt is $path"
         if ($PsCmdlet.ParameterSetName -eq "NonDifferencing") {
-            write-verbose "Schijgrootte is $([math]::round($NewVHDSizeBytes /1Gb, 3)) GB"
+            write-verbose "Schijfgrootte is $([math]::round($NewVHDSizeBytes /1Gb, 3)) GB"
         }
              
     }
