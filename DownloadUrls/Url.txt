@@ -1,0 +1,6 @@
+Windows11EnterpriseEval
+"https://go.microsoft.com/fwlink/p/?LinkID=2195266&clcid=0x409&culture=en-us&country=US"
+
+
+Windows 2022 eval
+"https://go.microsoft.com/fwlink/p/?LinkID=2195280&clcid=0x409&culture=en-us&country=US"
