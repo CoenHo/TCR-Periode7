@@ -8,11 +8,11 @@
             <ProductKey>XGVPP-NMH47-7TTHJ-W3FW7-8HV2C</ProductKey>
         </component>
         <component name="Microsoft-Windows-International-Core" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-            <InputLocale>nl-nl</InputLocale>
-            <UserLocale>nl-nl</UserLocale>
-            <SystemLocale>en-us</SystemLocale>
-            <UILanguage>en-us</UILanguage>
-            <UILanguageFallback>en-us</UILanguageFallback>
+            <InputLocale>en-US</InputLocale>
+            <UserLocale>nl-NL</UserLocale>
+            <SystemLocale>nl-NL</SystemLocale>
+            <UILanguage>en-US</UILanguage>
+            <UILanguageFallback><en-U></en-U></UILanguageFallback>
         </component>
     </settings>
     <settings pass="oobeSystem">
