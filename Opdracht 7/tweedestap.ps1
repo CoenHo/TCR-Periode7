@@ -14,5 +14,6 @@ Install-ADDSDomainController -DomainName tcr-coehod.int -credential $cred
     $password = ConvertTo-SecureString "P@ssw0rd" -AsPlainText -Force
     $smp = New-Object System.Management.Automation.PSCredential ("username", $password)
 
-    Install-ADDSDomainController -DomainName tcr-coehod.int -credential $cred -SafeModeAdministratorPassword $smp.pasword
+    Install-ADDSDomainController -DomainName tcr-coehod.int -credential $cred ` #Denk aan de backtick
+    -SafeModeAdministratorPassword $smp.pasword
 #EndRegion
